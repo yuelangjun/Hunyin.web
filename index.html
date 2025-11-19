@@ -238,6 +238,8 @@ document.getElementById('applyContent').addEventListener('click',()=>{
     if(!txt) return;
     const wrap = document.createElement('div');
     wrap.className = 'art-text';
+    wrap.style.fontFamily = 'Content, sans-serif';   // ★ 强制用自定义字体
+
     
     // 创建三个文字层
     const outerSpan = document.createElement('span');
