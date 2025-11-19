@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>魂印生成器</title>
+    <style>
+    /* ---- 原生成区样式100%保留开始 ---- */
+    @font-face{font-family:'Content';src:url(content.ttf) format('truetype')}
+    html,body{margin:0;height:100%;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;background:#111;color:#fff;font-family:Arial,sans-serif}
+    #box{text-align:center;width:80vmin}
+    #prev{position:relative;width:100%;padding-bottom:100%;background:#000;border:2px solid #666;overflow:hidden;margin-bottom:20px;box-shadow: 0 0 12px rgba(0,242,255,.6);}
+    .layer-container{position:absolute;top:0;left:0;width:100%;height:100%}
+    .layer{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center}
+    #contentLayer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:5;display:flex;align-items:center;justify-content:center;pointer-events:none}
+    .art-text{font-family:'Content',sans-serif;font-size:16vmin;position:relative;color:#fff;white-space:pre;filter:brightness(1);transform:translate(0,0)}
+    .art-text .inner{position:absolute;left:0;top:0}
+    .art-text .stroke{position:absolute;left:0;top:0;-webkit-text-stroke:0.075em;text-stroke:0.075em;color:transparent}
+    .art-text .outer{position:absolute;left:0;top:0;-webkit-text-stroke:0.15em;text-stroke:0.15em;color:transparent}
+    #contentLayer img{max-width:80%;max-height:80%;object-fit:contain;filter:brightness(1);transform:translate(0,0) scale(1)}
+    /* ---- 原生成区样式100%保留结束 ---- */
+    
+    /* ===== 以下只改控件皮肤，不动生成 ===== */
+    :root{
+      --bg0:#0d0d0f;
+      --bg1:#1a1a1f;
+      --bg2:#23232b;
+      --glass:rgba(38,38,46,.45);
+      --neon:#00f2ff;
+      --text:#e4e4e7;
+      --text2:#a0a0b0;
+      --radius:8px;
+      --transition:.2s;
+    }
+    h1{margin-bottom:20px;color:var(--text);font-size:6vmin;text-shadow:0 0 8px var(--neon)}
+    
+    /* 控制面板统一玻璃卡片 */
+    #ctrl,#contentCtrl,#textColorCtrls,#textAdjustControls,#imgAdjustControls,#colorCtrls{
+      display:flex;flex-wrap:wrap;justify-content:center;gap:10px;
+      background:var(--glass);backdrop-filter:blur(8px);
+      border:1px solid rgba(255,255,255,.1);border-radius:var(--radius);
+      padding:10px;margin-bottom:10px;
+    }
+    .color-control,.adjustment-group{display:flex;flex-direction:column;align-items:center;gap:6px}
+    label{font-size:clamp(12px,2.2vmin,14px);color:var(--text2)}
+    
+    /* 下拉/颜色/数字/按钮 */
+    select,input[type=color],input[type=number],button{
+      padding:4px 8px;font-size:clamp(14px,2.5vmin,16px);
+      border-radius:var(--radius);
+      border:1px solid rgba(255,255,255,.15);
+      background:var(--bg2);color:var(--text);
+      transition:var(--transition);
+    }
+    select:focus,input:focus,button:focus{outline:none;box-shadow:0 0 8px var(--neon)}
+    button:hover{background:var(--neon);color:var(--bg0);box-shadow:0 0 12px var(--neon)}
+    
+    /* 滑条霓虹 */
+    input[type=range]{
+      -webkit-appearance:none;
+      width:120px;height:6px;
+      background:var(--bg2);border-radius:3px;
+    }
+    input[type=range]::-webkit-slider-thumb{
+      -webkit-appearance:none;
+      width:16px;height:16px;
+      border-radius:50%;
+      background:var(--neon);
+      box-shadow:0 0 6px var(--neon);
+      transition:var(--transition);
+    }
+    input[type=range]::-webkit-slider-thumb:hover{background:var(--neon2);box-shadow:0 0 10px var(--neon2)}
+    
+    /* 单选/复选发光 */
+    input[type=radio],input[type=checkbox]{display:none}
+    input[type=radio]+label,input[type=checkbox]+label{
+      position:relative;padding-left:24px;cursor:pointer;user-select:none;font-size:clamp(12px,2.2vmin,14px);color:var(--text2);
+    }
+    input[type=radio]+label::before,input[type=checkbox]+label::before{
+      content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
+      width:16px;height:16px;border:2px solid var(--text2);transition:var(--transition);
+    }
+    input[type=radio]+label::before{border-radius:50%}
+    input[type=checkbox]+label::before{border-radius:4px}
+    input[type=radio]:checked+label::before,input[type=checkbox]:checked+label::before{border-color:var(--neon);box-shadow:0 0 6px var(--neon)}
+    input[type=radio]:checked+label::after{content:'';position:absolute;left:5px;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--neon)}
+    input[type=checkbox]:checked+label::after{content:'✔';position:absolute;left:3px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--neon)}
+    
+    /* 数值显示霓虹 */
+    .adjustment-group span{font-size:12px;color:var(--neon);min-width:40px;text-align:center}
+    #brightnessValue,#textBrightnessValue,#textSizeValue,#textPosXValue,#textPosYValue,#imgBrightnessValue,#imgSizeValue,#imgPosXValue,#imgPosYValue{color:var(--neon)}
+    </style>
+
+</head>
+<body>
+  <h1>魂印生成器</h1>
+  <div id="box">
+    <div id="prev">
+      <div id="contentLayer"></div>
+    </div>
+  </div>
+
+
+    <div id="ctrl">
+      <label>边框：
+        <select id="sel">
+          <option value="">—— 请选择 ——</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="top"> 置顶</label>
+    </div>
+
+    <div id="contentCtrl">
+      <label><input type="radio" name="contentType" value="text" checked> 文本</label>
+      <label><input type="radio" name="contentType" value="img"> 图片</label>
+      <input id="textInput" type="text" placeholder="输入文本" style="display:inline-block;">
+      <input id="imgInput" type="file" accept="image/*" style="display:none;">
+      <button id="applyContent">应用</button>
+    </div>
+
+    <div id="textColorCtrls"></div>
+    
+    <!-- 文字调整控制 -->
+    <div id="textAdjustControls" class="adjustment-controls" style="display: none;">
+      <div class="adjustment-group">
+        <label for="textBrightness">文字亮度</label>
+        <input type="range" id="textBrightness" min="50" max="200" value="100">
+        <span id="textBrightnessValue">100%</span>
+      </div>
+      <div class="adjustment-group">
+        <label for="textSize">文字大小</label>
+        <input type="range" id="textSize" min="20" max="200" value="100">
+        <span id="textSizeValue">100%</span>
+      </div>
+      <div class="adjustment-group">
+        <label for="textPosX">水平位置</label>
+        <input type="range" id="textPosX" min="-200" max="100" value="0">
+        <span id="textPosXValue">0px</span>
+      </div>
+      <div class="adjustment-group">
+        <label for="textPosY">垂直位置</label>
+        <input type="range" id="textPosY" min="-200" max="200" value="0">
+        <span id="textPosYValue">0px</span>
+      </div>
+    </div>
+
+    <!-- 图片调整控制 -->
+    <div id="imgAdjustControls" class="adjustment-controls" style="display: none;">
+      <div class="adjustment-group">
+        <label for="imgBrightness">图片亮度</label>
+        <input type="range" id="imgBrightness" min="50" max="200" value="100">
+        <span id="imgBrightnessValue">100%</span>
+      </div>
+      <div class="adjustment-group">
+        <label for="imgSize">图片大小</label>
+        <input type="range" id="imgSize" min="20" max="200" value="100">
+        <span id="imgSizeValue">100%</span>
+      </div>
+      <div class="adjustment-group">
+        <label for="imgPosX">水平位置</label>
+        <input type="range" id="imgPosX" min="-200" max="200" value="0">
+        <span id="imgPosXValue">0px</span>
+      </div>
+      <div class="adjustment-group">
+        <label for="imgPosY">垂直位置</label>
+        <input type="range" id="imgPosY" min="-200" max="200" value="0">
+        <span id="imgPosYValue">0px</span>
+      </div>
+    </div>
+
+    <div id="colorCtrls"></div>
+    <div class="brightness-control">
+      <label for="brightness">边框亮度:</label>
+      <input id="brightness" type="range" min="50" max="200" value="150">
+      <span id="brightnessValue">150%</span>
+    </div>
+  </div>
+  <div style="margin-top:15px;text-align:center">
+    <button id="saveBtn" style="padding:8px 18px;font-size:16px;border-radius:6px;border:none;background:#00f2ff;color:#000;box-shadow:0 0 8px #00f2ff;cursor:pointer">保存图片</button>
+  </div>
+
+<script src="frame.js"></script>
+<script>
+let currentLayers = [];
+let currentColors = [];
+let currentTextElements = {
+  outer: null,
+  stroke: null,
+  inner: null
+};
+let currentTextColors = {
+  outer: '#ffffff',
+  stroke: '#ffffff', 
+  inner: '#ffffff'
+};
+let currentContentElement = null;
+
+const contentLayer = document.getElementById('contentLayer');
+const sel = document.getElementById('sel');
+const topChk = document.getElementById('top');
+const bright = document.getElementById('brightness');
+
+// 初始化下拉菜单
+if(window.frameData){
+  Object.keys(window.frameData).forEach(k=>{
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = k;
+    sel.appendChild(o);
+  });
+}
+
+// 内容层文本/图片切换
+document.querySelectorAll('input[name="contentType"]').forEach(r=>{
+  r.addEventListener('change',()=>{
+    const isText = r.value === 'text';
+    document.getElementById('textInput').style.display = isText ? 'inline-block' : 'none';
+    document.getElementById('imgInput').style.display = isText ? 'none' : 'inline-block';
+    document.getElementById('textColorCtrls').style.display = isText ? 'flex' : 'none';
+    document.getElementById('textAdjustControls').style.display = isText ? 'flex' : 'none';
+    document.getElementById('imgAdjustControls').style.display = isText ? 'none' : 'flex';
+  });
+});
+
+document.getElementById('applyContent').addEventListener('click',()=>{
+  const mode = document.querySelector('input[name="contentType"]:checked').value;
+  contentLayer.innerHTML = '';
+  if(mode === 'text'){
+    const txt = document.getElementById('textInput').value.trim();
+    if(!txt) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'art-text';
+    
+    // 创建三个文字层
+    const outerSpan = document.createElement('span');
+    outerSpan.className = 'outer';
+    outerSpan.textContent = txt;
+    outerSpan.style.webkitTextStrokeColor = currentTextColors.outer;
+    outerSpan.style.textStrokeColor = currentTextColors.outer;
+    
+    const strokeSpan = document.createElement('span');
+    strokeSpan.className = 'stroke';
+    strokeSpan.textContent = txt;
+    strokeSpan.style.webkitTextStrokeColor = currentTextColors.stroke;
+    strokeSpan.style.textStrokeColor = currentTextColors.stroke;
+    
+    const innerSpan = document.createElement('span');
+    innerSpan.className = 'inner';
+    innerSpan.textContent = txt;
+    innerSpan.style.color = currentTextColors.inner;
+    
+    wrap.appendChild(outerSpan);
+    wrap.appendChild(strokeSpan);
+    wrap.appendChild(innerSpan);
+    contentLayer.appendChild(wrap);
+    
+    // 保存当前文字元素引用
+    currentTextElements.outer = outerSpan;
+    currentTextElements.stroke = strokeSpan;
+    currentTextElements.inner = innerSpan;
+    currentContentElement = wrap;
+    
+    // 添加文字颜色控制
+    addTextColorCtrls();
+    
+    // 显示文字调整控制
+    document.getElementById('textAdjustControls').style.display = 'flex';
+    document.getElementById('imgAdjustControls').style.display = 'none';
+  }
+});
+
+document.getElementById('imgInput').addEventListener('change',e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.src = url;
+  img.onload = () => {
+    contentLayer.innerHTML = '';
+    contentLayer.appendChild(img);
+    document.getElementById('textColorCtrls').style.display = 'none';
+    document.getElementById('textAdjustControls').style.display = 'none';
+    document.getElementById('imgAdjustControls').style.display = 'flex';
+    
+    currentContentElement = img;
+  };
+});
+
+// 文字调整事件监听
+document.getElementById('textBrightness').addEventListener('input', function() {
+  const value = this.value;
+  document.getElementById('textBrightnessValue').textContent = value + '%';
+  if(currentContentElement) {
+    currentContentElement.style.filter = `brightness(${value / 100})`;
+  }
+});
+
+document.getElementById('textSize').addEventListener('input', function() {
+  const value = this.value;
+  document.getElementById('textSizeValue').textContent = value + '%';
+  if(currentContentElement) {
+    const baseSize = 32;
+    currentContentElement.style.fontSize = `${baseSize * (value / 100)}vmin`;
+  }
+});
+
+document.getElementById('textPosX').addEventListener('input', function() {
+  const value = this.value;
+  document.getElementById('textPosXValue').textContent = value + 'px';
+  if(currentContentElement) {
+    const currentTransform = getCurrentTransform(currentContentElement);
+    currentContentElement.style.transform = `translate(${value}px, ${currentTransform.y}px)`;
+  }
+});
+
+document.getElementById('textPosY').addEventListener('input', function() {
+  const value = this.value;
+  document.getElementById('textPosYValue').textContent = value + 'px';
+  if(currentContentElement) {
+    const currentTransform = getCurrentTransform(currentContentElement);
+    currentContentElement.style.transform = `translate(${currentTransform.x}px, ${value}px)`;
+  }
+});
+
+// 图片调整事件监听
+document.getElementById('imgBrightness').addEventListener('input', function() {
+  const value = this.value;
+  document.getElementById('imgBrightnessValue').textContent = value + '%';
+  if(currentContentElement && currentContentElement.tagName === 'IMG') {
+    currentContentElement.style.filter = `brightness(${value / 100})`;
+  }
+});
+
+document.getElementById('imgSize').addEventListener('input', function() {
+  const value = this.value;
+  document.getElementById('imgSizeValue').textContent = value + '%';
+  if(currentContentElement && currentContentElement.tagName === 'IMG') {
+    const currentTransform = getCurrentTransform(currentContentElement);
+    currentContentElement.style.transform = `translate(${currentTransform.x}px, ${currentTransform.y}px) scale(${value / 100})`;
+  }
+});
+
+document.getElementById('imgPosX').addEventListener('input', function() {
+  const value = this.value;
+  document.getElementById('imgPosXValue').textContent = value + 'px';
+  if(currentContentElement && currentContentElement.tagName === 'IMG') {
+    const currentTransform = getCurrentTransform(currentContentElement);
+    currentContentElement.style.transform = `translate(${value}px, ${currentTransform.y}px) scale(${currentTransform.scale})`;
+  }
+});
+
+document.getElementById('imgPosY').addEventListener('input', function() {
+  const value = this.value;
+  document.getElementById('imgPosYValue').textContent = value + 'px';
+  if(currentContentElement && currentContentElement.tagName === 'IMG') {
+    const currentTransform = getCurrentTransform(currentContentElement);
+    currentContentElement.style.transform = `translate(${currentTransform.x}px, ${value}px) scale(${currentTransform.scale})`;
+  }
+});
+
+// 辅助函数：获取当前transform值
+function getCurrentTransform(element) {
+  const transform = element.style.transform || '';
+  const xMatch = transform.match(/translate\(([-\d.]+)px/);
+  const yMatch = transform.match(/translate\([-\d.]+px,\s*([-\d.]+)px/);
+  const scaleMatch = transform.match(/scale\(([\d.]+)\)/);
+  
+  return {
+    x: xMatch ? parseFloat(xMatch[1]) : 0,
+    y: yMatch ? parseFloat(yMatch[1]) : 0,
+    scale: scaleMatch ? parseFloat(scaleMatch[1]) : 1
+  };
+}
+
+// 添加文字颜色控制
+function addTextColorCtrls() {
+  const textColorCtrls = document.getElementById('textColorCtrls');
+  textColorCtrls.innerHTML = '';
+  textColorCtrls.style.display = 'flex';
+  
+  const textParts = [
+    { key: 'outer', label: '外描边' },
+    { key: 'stroke', label: '内描边' },
+    { key: 'inner', label: '文字主体' }
+  ];
+  
+  textParts.forEach(part => {
+    const div = document.createElement('div');
+    div.className = 'color-control';
+    
+    const lbl = document.createElement('label');
+    lbl.htmlFor = `text-color-${part.key}`;
+    lbl.textContent = part.label;
+    
+    const inp = document.createElement('input');
+    inp.type = 'color';
+    inp.id = `text-color-${part.key}`;
+    inp.value = currentTextColors[part.key];
+    
+    inp.addEventListener('input', () => {
+      applyTextColor(part.key, inp.value);
+    });
+    
+    div.appendChild(lbl);
+    div.appendChild(inp);
+    textColorCtrls.appendChild(div);
+  });
+}
+
+// 应用文字颜色
+function applyTextColor(part, color) {
+  currentTextColors[part] = color;
+  
+  if (!currentTextElements[part]) return;
+  
+  switch(part) {
+    case 'outer':
+    case 'stroke':
+      currentTextElements[part].style.webkitTextStrokeColor = color;
+      currentTextElements[part].style.textStrokeColor = color;
+      break;
+    case 'inner':
+      currentTextElements[part].style.color = color;
+      break;
+  }
+}
+
+// 边框+图层加载
+sel.addEventListener('change', () => loadImages(sel.value));
+topChk.addEventListener('change', function() {
+  toggleTop(this.checked);
+});
+bright.addEventListener('input', e => {
+  document.getElementById('brightnessValue').textContent = e.target.value + '%';
+  applyBrightness(e.target.value / 100);
+});
+
+function loadImages(group) {
+  const prev = document.getElementById('prev');
+  const content = document.getElementById('contentLayer');
+  
+  // 只移除边框图层，保留内容层
+  const borderContainers = prev.querySelectorAll('.layer-container');
+  borderContainers.forEach(container => {
+    container.remove();
+  });
+  
+  currentLayers = [];
+  currentOverlays = []; // 需要这个数组来存储着色层
+  currentColors = [];
+  
+  if(!group || !window.frameData || !window.frameData[group]) return;
+  const images = window.frameData[group];
+
+  images.forEach((imageName, index) => {
+    const container = document.createElement('div');
+    container.className = `layer-container layer-container-${index}`;
+    
+    const img = document.createElement('img');
+    img.src = `deep/${imageName}`;
+    img.className = `layer layer-${index}`;
+    img.style.filter = `brightness(${bright.value/100})`;
+    
+    
+    container.appendChild(img);
+    prev.insertBefore(container, content);
+    
+    currentLayers[index] = img;
+    currentColors[index] = '#ffffff';
+    
+    img.onerror = () => {
+      container.style.backgroundColor = '#333';
+      container.style.display = 'flex';
+      container.style.alignItems = 'center';
+      container.style.justifyContent = 'center';
+      container.style.color = '#fff';
+      container.innerHTML = index === 0 ? '边框' : `边框 ${index}`;
+    };
+  });
+  
+  addColorCtrls(images.length);
+}
+
+function addColorCtrls(count) {
+  const cc = document.getElementById('colorCtrls');
+  cc.innerHTML = '';
+  for(let i = 0; i < count; i++) {
+    const div = document.createElement('div');
+    div.className = 'color-control';
+    const lbl = document.createElement('label');
+    lbl.htmlFor = `color-${i}`;
+    lbl.textContent = i === 0 ? '边框' : `边框 ${i}`;
+    const inp = document.createElement('input');
+    inp.type = 'color';
+    inp.id = `color-${i}`;
+    inp.value = '#ffffff';
+    inp.addEventListener('input', () => applyColor(i, inp.value));
+    div.appendChild(lbl);
+    div.appendChild(inp);
+    cc.appendChild(div);
+  }
+}
+
+function applyBrightness(v) {
+  currentLayers.forEach(l => {
+    if(l) l.style.filter = l.style.filter.replace(/brightness\([^)]+\)/, `brightness(${v})`);
+  });
+}
+
+function toggleTop(on) {
+  const contentLayer = document.getElementById('contentLayer');
+  const borderContainers = document.querySelectorAll('.layer-container');
+  
+  if (on) {
+    // 置顶模式：边框在上方
+    borderContainers.forEach(container => {
+      container.style.zIndex = '1000';
+    });
+    contentLayer.style.zIndex = '1';
+    
+    // 显示提示信息
+    console.log('置顶模式下着色可能异常，这是mix-blend-mode的技术限制');
+    
+  } else {
+    // 正常模式：内容在上方
+    contentLayer.style.zIndex = '1000';
+    borderContainers.forEach(container => {
+      container.style.zIndex = '1';
+    });
+  }
+}
+
+function applyColor(index, color) {
+  if(!currentLayers[index]) return;
+  currentColors[index] = color;
+    
+    
+    if(color === '#ffffff'){
+      currentLayers[index].style.filter = `brightness(${bright.value/100})`;
+    }
+ else {
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substr(0,2),16);
+    const g = parseInt(hex.substr(2,2),16);
+    const b = parseInt(hex.substr(4,2),16);
+
+    // ↓ 去掉下面这一行里的 “brightness(...)” 嵌套
+    currentLayers[index].style.filter = `
+      sepia(1) 
+      hue-rotate(${getHueRotation(color)}deg)
+      saturate(${getSaturation(color)})
+      brightness(${getBrightnessAdjustment(color)})
+    `;
+    // ↑ 只保留用户滑块值，不再二次乘以 bright.value/100
+  }
+}
+
+// 辅助函数：计算色相旋转角度
+function getHueRotation(color) {
+  const hex = color.replace('#', '');
+  const r = parseInt(hex.substr(0,2),16) / 255;
+  const g = parseInt(hex.substr(2,2),16) / 255;
+  const b = parseInt(hex.substr(4,2),16) / 255;
+  
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  
+  if(max !== min) {
+    const delta = max - min;
+    switch(max) {
+      case r: h = ((g - b) / delta + (g < b ? 6 : 0)) * 60; break;
+      case g: h = ((b - r) / delta + 2) * 60; break;
+      case b: h = ((r - g) / delta + 4) * 60; break;
+    }
+  }
+  
+  // 从sepia的黄色调(约45度)旋转到目标色相
+  return h - 45;
+}
+
+// 辅助函数：计算饱和度调整
+function getSaturation(color) {
+  const hex = color.replace('#', '');
+  const r = parseInt(hex.substr(0,2),16) / 255;
+  const g = parseInt(hex.substr(2,2),16) / 255;
+  const b = parseInt(hex.substr(4,2),16) / 255;
+  
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const saturation = max === 0 ? 0 : (max - min) / max;
+  
+  return Math.max(1, saturation * 3); // 增强饱和度
+}
+
+// 辅助函数：计算亮度调整
+function getBrightnessAdjustment(color) {
+  const hex = color.replace('#', '');
+  const r = parseInt(hex.substr(0,2),16);
+  const g = parseInt(hex.substr(2,2),16);
+  const b = parseInt(hex.substr(4,2),16);
+  
+  // 计算相对亮度
+  const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+  
+  // 调整亮度以匹配目标颜色的明度
+  return brightness > 0.5 ? 1 + (brightness - 0.5) : brightness * 1.5;
+}
+
+// 初始化隐藏控制面板
+document.getElementById('textColorCtrls').style.display = 'none';
+document.getElementById('textAdjustControls').style.display = 'none';
+document.getElementById('imgAdjustControls').style.display = 'none';
+</script>
+<script src="https://cdn.bootcdn.net/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+document.getElementById('saveBtn').addEventListener('click', () => {
+  html2canvas(document.getElementById('prev'), {
+    backgroundColor: null,      // 透明背景
+    scale: 2                    // 2 倍清晰度
+  }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = '魂印_' + Date.now() + '.png';
+    link.href = canvas.toDataURL();
+    link.click();
+  });
+});
+</script>
+</body>
+</html>
