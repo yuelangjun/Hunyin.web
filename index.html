@@ -460,6 +460,9 @@ function loadImages(group) {
     img.src = `deep/${imageName}`;
     img.className = `layer layer-${index}`;
     img.style.filter = `brightness(${bright.value/100})`;
+    const cleanSrc = `deep/${imageName}`;
+    img.src = cleanSrc;
+    img.dataset.clean = cleanSrc;
     
     
     container.appendChild(img);
@@ -530,29 +533,52 @@ function toggleTop(on) {
   }
 }
 
-function applyColor(index, color) {
-  if(!currentLayers[index]) return;
-  currentColors[index] = color;
-    
-    
-    if(color === '#ffffff'){
-      currentLayers[index].style.filter = `brightness(${bright.value/100})`;
-    }
- else {
-    const hex = color.replace('#', '');
-    const r = parseInt(hex.substr(0,2),16);
-    const g = parseInt(hex.substr(2,2),16);
-    const b = parseInt(hex.substr(4,2),16);
+function tintImage(img, color, callback) {
+  const canvas = document.createElement('canvas');
+  const ctx    = canvas.getContext('2d');
+  canvas.width  = img.naturalWidth;
+  canvas.height = img.naturalHeight;
 
-    // ↓ 去掉下面这一行里的 “brightness(...)” 嵌套
-    currentLayers[index].style.filter = `
-      sepia(1) 
-      hue-rotate(${getHueRotation(color)}deg)
-      saturate(${getSaturation(color)})
-      brightness(${getBrightnessAdjustment(color)})
-    `;
-    // ↑ 只保留用户滑块值，不再二次乘以 bright.value/100
+  // ① 原图画上去（含透明）
+  ctx.drawImage(img, 0, 0);
+
+  // ② 用 multiply 给非透明像素叠色 → 保留明暗（灰度起伏）
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // ③ 再画回原图，恢复透明
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(img, 0, 0);
+
+  // ④ 导出
+  ctx.globalCompositeOperation = 'source-over';
+  callback(canvas.toDataURL('image/png'));
+}
+
+// 2. 在 applyColor 里继续用它
+function applyColor(index, color) {
+  const img = currentLayers[index];
+  const clean = img.dataset.clean;   // 取干净原图
+  if (!clean) return;
+
+  if (color === '#ffffff') {
+    // 恢复原图
+    img.src = clean;
+    img.style.filter = `brightness(${bright.value/100})`;
+    return;
   }
+
+  // 重新染色
+  const tmp = new Image();
+  tmp.crossOrigin = 'anonymous';
+  tmp.src = clean;
+  tmp.onload = () => {
+    tintImage(tmp, color, (dataURL) => {
+      img.src = dataURL;                 // 一次性替换，不叠加
+      img.style.filter = `brightness(${bright.value/100})`;
+    });
+  };
 }
 
 // 辅助函数：计算色相旋转角度
